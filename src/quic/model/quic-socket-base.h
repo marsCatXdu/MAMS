@@ -261,11 +261,10 @@ public:
   //                       uint16_t cellid,
   //                       uint16_t rnti,
   //                       uint16_t targetCellId);
-  /**
-   * \brief obtain SINR info dynamically.
-   *
-   */
 
+  /**
+   * \brief obtain SINR info dynamically. NOT ACTUALLY USED IN ORIGINAL CODE
+   */
   static void ReportUeSinr (std::string context, uint16_t cellId, uint16_t rnti, double sinrLinear, uint8_t componentCarrierId);
 
   void SetRemoteAddr (Address &address);

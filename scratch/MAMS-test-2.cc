@@ -91,6 +91,9 @@ static void Traces(uint32_t serverId, std::string pathVersion, std::string final
 std::vector<uint32_t> RxBytesList = boost::assign::list_of(0)(0);
 
 
+/**
+ * Read FlowMonitor data every second and update gnuplot data Gnuplot2dDataset
+ */
 void ThroughputMonitor(FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gnuplot2dDataset DataSet, Gnuplot2dDataset DataSet1)
 {
     std::map<FlowId, FlowMonitor::FlowStats> flowStats = flowMon->GetFlowStats();
@@ -99,15 +102,15 @@ void ThroughputMonitor(FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gn
     {
         // updata gnuplot data
         if(stats->first == 1) {
-            DataSet.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[0])*8/1024/1024);
+            DataSet.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[0])*8/1024/1024*10);
             RxBytesList[0] = stats->second.rxBytes;
         }
         if(stats->first == 3) {
-            DataSet1.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[1])*8/1024/1024);
+            DataSet1.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[1])*8/1024/1024*10);
             RxBytesList[1] = stats->second.rxBytes;
         }
     }
-    Simulator::Schedule(Seconds(1),&ThroughputMonitor, fmhelper, flowMon,DataSet, DataSet1);
+    Simulator::Schedule(Seconds(0.1),&ThroughputMonitor, fmhelper, flowMon, DataSet, DataSet1);
 }
 
 
@@ -123,6 +126,16 @@ void ModifyLinkRate(NetDeviceContainer *ptp, QuicEchoClientHelper echoClient, Da
     }
 }
 
+
+/**
+ * Outline:
+ *   1. Create 2 nodes
+ *   2. Install QUIC stack (QuicHelper)
+ *   3. Create 2 p2p links, attach error model
+ *   4. Install echo apps
+ *   5. Schedule monitoring & mobility events
+ *   6. Run 50s
+ */
 int main (int argc, char *argv[])
 {
     Time::SetResolution(Time::NS);
@@ -137,13 +150,13 @@ int main (int argc, char *argv[])
     std::vector<NetDeviceContainer> netDevices(2);
     std::string dataRate0 = "10Mbps";
     std::string delay1 = "10ms";
-    delay[0] = "50ms";
+    delay[0] = "10ms";
     rate[1] = "50Mbps";
 
     double errorRate = 0.000004;
     uint8_t schAlgo = 3;
     std::string maxBuffSize = "5p";
-    uint64_t fileSize = 5e6;
+    uint64_t fileSize = 8e6;
 
     CommandLine cmd;
     cmd.Usage("Simulation of bulkSend over MPQUIC.\n");
@@ -175,7 +188,7 @@ int main (int argc, char *argv[])
     auto n2 = nodes.Get(1);
 
     int sf = 2;
-    Time simulationEndTime = Seconds(50);
+    Time simulationEndTime = Seconds(9);
 
     int start_time = 1;
 
@@ -226,7 +239,7 @@ int main (int argc, char *argv[])
         Ipv4InterfaceContainer interface = ipv4addr.Assign(netDevices[i]);
         ipv4Ints.insert(ipv4Ints.end(), interface);
 
-        p2plink.EnablePcap ("prueba" , nodes, true);
+        p2plink.EnablePcap("prueba" , nodes, false);
     }
 
     for(auto ipaddr:ipv4Ints) {
@@ -256,7 +269,7 @@ int main (int argc, char *argv[])
     echoClient.WithMobility(isMob);
 
     ApplicationContainer clientApps = echoClient.Install(nodes.Get(0));
-    echoClient.SetFill(clientApps.Get(0),100,fileSize);
+    echoClient.SetFill(clientApps.Get(0), 100, fileSize);
     clientApps.Start(Seconds(start_time));
     clientApps.Stop(simulationEndTime);
 
@@ -294,33 +307,44 @@ int main (int argc, char *argv[])
     ThroughputMonitor(&flowmon, monitor, dataset, dataset1);
 
     if(isMob) {
-        for(int i = 0; i < 50; i++) {
-            for(int j = 1; j < 5; j++) {
-                //after the rtt of each path, modify the data rate
-                Simulator::Schedule (Seconds(start_time + (i*4 + j + 1) * delayInt[0] * 2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(bwInt[0]-j*(bwInt[0]/5))+"Mbps"), 0);
-                Simulator::Schedule (Seconds(start_time + (i*4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(bwInt[0]/5*(j+1))+"Mbps"), 1);
-            }
-        }
+        (void)bwInt;
+        Simulator::Schedule(Seconds(0), &ModifyLinkRate, &netDevices[0], echoClient, DataRate("1Mbps"), 0);
+        Simulator::Schedule(Seconds(1), &ModifyLinkRate, &netDevices[0], echoClient, DataRate("5Mbps"), 0);
+        Simulator::Schedule(Seconds(2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate("5Mbps"), 0);
+        Simulator::Schedule(Seconds(3), &ModifyLinkRate, &netDevices[0], echoClient, DataRate("10Mbps"), 0);
+        // Simulator::Schedule(Seconds(4), &ModifyLinkRate, &netDevices[0], echoClient, DataRate("15Mbps"), 0);
+        Simulator::Schedule(Seconds(0), &ModifyLinkRate, &netDevices[1], echoClient, DataRate("13Mbps"), 1);
+        Simulator::Schedule(Seconds(1), &ModifyLinkRate, &netDevices[1], echoClient, DataRate("8Mbps"), 1);
+        Simulator::Schedule(Seconds(2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate("5Mbps"), 1);
+        Simulator::Schedule(Seconds(3), &ModifyLinkRate, &netDevices[1], echoClient, DataRate("3Mbps"), 1);
+        Simulator::Schedule(Seconds(4), &ModifyLinkRate, &netDevices[1], echoClient, DataRate("2Mbps"), 1);
+        // for(int i = 0; i < 50; i++) {
+        //     for(int j = 1; j < 5; j++) {
+        //         //after the rtt of each path, modify the data rate
+        //         Simulator::Schedule(Seconds(start_time+(i*4+j+1)*delayInt[0]*2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(bwInt[0]-j*(bwInt[0]/5))+"Mbps"), 0);
+        //         Simulator::Schedule(Seconds(start_time+(i*4+j+1)*delayInt[1]*2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(bwInt[0]/5*(j+1))+"Mbps"), 1);
+        //     }
+        // }
 
-        for(int i = 0; i < 50; i++) {
-            for(int j = 1; j < 5; j++) {
-                if(randMob) {
-                    Ptr<ns3::NormalRandomVariable> rate = CreateObject<NormalRandomVariable>();
-                    rate->SetAttribute("Mean", DoubleValue(bwInt[0]));
-                    rate->SetAttribute("Variance", DoubleValue(bwInt[0]/10));
-                    Simulator::Schedule(Seconds(start_time + (i*4 + j + 1) * delayInt[0] * 2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(rate->GetValue())+"Mbps"), 0);
-                    rate->SetAttribute("Mean", DoubleValue(bwInt[1]));
-                    rate->SetAttribute("Variance", DoubleValue(bwInt[1]/10));
-                    Simulator::Schedule(Seconds(start_time + (i*4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(rate->GetValue())+"Mbps"), 1);
-                } else{
-                    //after the rtt of each path, modify the data rate
-                    Simulator::Schedule (Seconds (start_time + (i * 4 + j + 1) * delayInt[0] * 2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(bwInt[0]-j*(bwInt[0]/5))+"Mbps"), 0);
-                    // std::cout<<"time: "<< start_time + (i * 4 + j) * delayInt[0] * 2 <<" path0 : rate "<<bwInt[0]-j*(bwInt[0]/5)<<"Mbps"<<"\n";
-                    Simulator::Schedule (Seconds (start_time + (i * 4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(bwInt[0]/5*(j+1))+"Mbps"), 1);
-                    // std::cout<<"time: "<< start_time + (i * 4 + j) * delayInt[1] * 2 <<" path1 : rate "<<bwInt[0]/5*(j+1)<<"Mbps"<<"\n";
-                }
-            }
-        }
+        // for(int i = 0; i < 50; i++) {
+        //     for(int j = 1; j < 5; j++) {
+        //         if(randMob) {
+        //             Ptr<ns3::NormalRandomVariable> rate = CreateObject<NormalRandomVariable>();
+        //             rate->SetAttribute("Mean", DoubleValue(bwInt[0]));
+        //             rate->SetAttribute("Variance", DoubleValue(bwInt[0]/10));
+        //             Simulator::Schedule(Seconds(start_time + (i*4 + j + 1) * delayInt[0] * 2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(rate->GetValue())+"Mbps"), 0);
+        //             rate->SetAttribute("Mean", DoubleValue(bwInt[1]));
+        //             rate->SetAttribute("Variance", DoubleValue(bwInt[1]/10));
+        //             Simulator::Schedule(Seconds(start_time + (i*4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(rate->GetValue())+"Mbps"), 1);
+        //         } else{
+        //             //after the rtt of each path, modify the data rate
+        //             Simulator::Schedule(Seconds(start_time+(i*4+j+1)*delayInt[0]*2), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(bwInt[0]-j*(bwInt[0]/5))+"Mbps"), 0);
+        //             // std::cout<<"time: "<< start_time + (i * 4 + j) * delayInt[0] * 2 <<" path0 : rate "<<bwInt[0]-j*(bwInt[0]/5)<<"Mbps"<<"\n";
+        //             Simulator::Schedule(Seconds (start_time + (i * 4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(bwInt[0]/5*(j+1))+"Mbps"), 1);
+        //             // std::cout<<"time: "<< start_time + (i * 4 + j) * delayInt[1] * 2 <<" path1 : rate "<<bwInt[0]/5*(j+1)<<"Mbps"<<"\n";
+        //         }
+        //     }
+        // }
     }
 
 
@@ -350,7 +374,6 @@ int main (int argc, char *argv[])
 
     std::ofstream outfile;
     outfile.open("wmp"+std::to_string(simulationEndTime.GetSeconds())+".txt");
-    /*
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin (); i != stats.end (); ++i) {
         Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
         outfile << "Flow " << i->first  << " (" << t.sourceAddress << " -> " << t.destinationAddress << ")\n";
@@ -367,7 +390,6 @@ int main (int argc, char *argv[])
         std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / simulationEndTime.GetSeconds () / 1000 / 1000  << " Mbps\n";
         std::cout <<  "  Tx time: " << (i->second.timeLastTxPacket - i->second.timeFirstTxPacket).GetSeconds()<<"\n";
     }
-    */
 
     outfile.close();
     // std::cout << "\n\n#################### RUN FINISHED ####################\n\n\n";

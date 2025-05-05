@@ -827,9 +827,10 @@ QuicSocketBase::NotifyConnectionEstablishedEnb (std::string context,
             // << std::endl;
 }
 
+// MAMS Extension
 //ywj added on Aug. 09: obtain sinr info dynamically.
-std::vector<double> QuicSocketBase::ue_sinr = boost::assign::list_of(0)(0); 
-std::vector<double> QuicSocketBase::ue_Bmin = boost::assign::list_of(0)(0)(0)(0)(0); 
+std::vector<double> QuicSocketBase::ue_sinr = boost::assign::list_of(0)(0);
+std::vector<double> QuicSocketBase::ue_Bmin = boost::assign::list_of(0)(0)(0)(0)(0);
 
 void
 QuicSocketBase::NotifyHandoverEndOkEnb (std::string context,
@@ -848,11 +849,9 @@ QuicSocketBase::NotifyHandoverEndOkEnb (std::string context,
 
 void
 QuicSocketBase::ReportUeSinr (std::string context, uint16_t cellId, uint16_t rnti, double sinrLinear, uint8_t componentCarrierId){
-    
-    
     QuicSocketBase::ue_sinr[rnti-1] = sinrLinear;
     QuicSocketBase::ue_Bmin[rnti-1] = 12500*log2(pow(10,sinrLinear/10)+1);
-    // std::cout <<context<<" CellId: " << cellId
+    // std::cout <<context<<" =============================================================== CellId: " << cellId
     //         << " rnti: " << rnti
     //         << "sinrLinear: " << sinrLinear
     //         << " componentCarrierId: " << componentCarrierId
@@ -866,49 +865,45 @@ QuicSocketBase::Connect (const Address & address)
 {
   NS_LOG_FUNCTION (this);
   // Config::Connect ("/NodeList/*/DeviceList/*/ComponentCarrierMap/*/LteEnbPhy/ReportUeSinr",
-  //                  MakeCallback (&ReportUeSinr)); 
+  //                  MakeCallback (&ReportUeSinr));
   // Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/ConnectionEstablished",
   //                  MakeCallback (&NotifyConnectionEstablishedEnb));
   // Config::Connect ("/NodeList/*/DeviceList/*/LteEnbRrc/HandoverEndOk",
   //                  MakeCallback (&NotifyHandoverEndOkEnb));
 
   Ptr<MpQuicSubFlow> sFlow = CreateObject<MpQuicSubFlow> ();
- 
- //rtt0 = 10;
+
+  //rtt0 = 10;
   sFlow->routeId  = (m_subflows.size() == 0 ? 0:m_subflows[m_subflows.size() - 1]->routeId + 1);
 
-  if (InetSocketAddress::IsMatchingType (address))
-    {
-      if (m_endPoint == nullptr)
-        {
-          if (Bind () == -1)
-            {
-              NS_ASSERT (m_endPoint == nullptr);
-              return -1; // Bind() failed
-            }
-          NS_ASSERT (m_endPoint != nullptr);
-        }
-      InetSocketAddress transport = InetSocketAddress::ConvertFrom (address);
-      m_endPoint->SetPeer (transport.GetIpv4 (), transport.GetPort ());
-      sFlow->dAddr    = transport.GetIpv4 ();
-      sFlow->dPort    = transport.GetPort ();
-      sFlow->sAddr = m_endPoint->GetLocalAddress ();
-      sFlow->sPort = m_endPoint->GetLocalPort ();
-      m_subflows.insert(m_subflows.end(), sFlow);
-      m_addrIdPair.insert(std::pair<Ipv4Address, uint8_t> (transport.GetIpv4 (), sFlow->routeId));
-      //std::cout<<"QuicSocketBase::Connect(addr): size"<<m_subflows.size()<<"sFlow->sAddr: "<<sFlow->sAddr<<"sFlow->dAddr"<<sFlow->dAddr<<std::endl;
-      //SetIpTos (transport.GetTos ());
-      m_endPoint6 = nullptr;
-
-      // Get the appropriate local address and port number from the routing protocol and set up endpoint
-      /*if (SetupEndpoint () != 0)
-        {
-          NS_LOG_ERROR ("Route to destination does not exist ?!");
-          return -1;
-        }*/
+  if (InetSocketAddress::IsMatchingType (address)) {
+    if (m_endPoint == nullptr) {
+      if (Bind () == -1) {
+        NS_ASSERT (m_endPoint == nullptr);
+        return -1; // Bind() failed
+      }
+      NS_ASSERT (m_endPoint != nullptr);
     }
-  else if (Inet6SocketAddress::IsMatchingType (address))
-    {
+    InetSocketAddress transport = InetSocketAddress::ConvertFrom (address);
+    m_endPoint->SetPeer (transport.GetIpv4 (), transport.GetPort ());
+    sFlow->dAddr    = transport.GetIpv4 ();
+    sFlow->dPort    = transport.GetPort ();
+    sFlow->sAddr = m_endPoint->GetLocalAddress ();
+    sFlow->sPort = m_endPoint->GetLocalPort ();
+    m_subflows.insert(m_subflows.end(), sFlow);
+    m_addrIdPair.insert(std::pair<Ipv4Address, uint8_t> (transport.GetIpv4 (), sFlow->routeId));
+    //std::cout<<"QuicSocketBase::Connect(addr): size"<<m_subflows.size()<<"sFlow->sAddr: "<<sFlow->sAddr<<"sFlow->dAddr"<<sFlow->dAddr<<std::endl;
+    //SetIpTos (transport.GetTos ());
+    m_endPoint6 = nullptr;
+
+    // Get the appropriate local address and port number from the routing protocol and set up endpoint
+    /*
+    if (SetupEndpoint () != 0) {
+      NS_LOG_ERROR ("Route to destination does not exist ?!");
+      return -1;
+    }
+    */
+  } else if (Inet6SocketAddress::IsMatchingType (address)) {
       // If we are operating on a v4-mapped address, translate the address to
       // a v4 address and re-call this function
       Inet6SocketAddress transport = Inet6SocketAddress::ConvertFrom (address);
@@ -937,12 +932,10 @@ QuicSocketBase::Connect (const Address & address)
           NS_LOG_ERROR ("Route to destination does not exist ?!");
           return -1;
         }*/
-    }
-  else
-    {
+  } else {
       m_errno = ERROR_INVAL;
       return -1;
-    }
+  }
 
 
   if (m_socketType == NONE)
@@ -1024,73 +1017,57 @@ QuicSocketBase::Send (Ptr<Packet> p)
   return data;
 }
 
-int
-QuicSocketBase::AppendingTx (Ptr<Packet> frame)
+// MAMS Extension
+int QuicSocketBase::AppendingTx (Ptr<Packet> frame)
 {
   NS_LOG_FUNCTION (this);
 
-  //ywj: 
-  uint32_t win = AvailableWindow (m_lastUsedsFlowIdx); 
+  //ywj:
+  uint32_t win = AvailableWindow (m_lastUsedsFlowIdx);
 
-  if (win == 0){
+  if(win == 0) {
     m_lastUsedsFlowIdx = GetSubflowToUse ();
   }
+
   //ywj: before using m_txBuffer, have to set its state to the current used subflow's socket state
   m_txBuffer->SetQuicSocketState(m_subflows[m_lastUsedsFlowIdx]->m_tcb);
 
-  if (m_socketState != IDLE)
-    {
-      bool done = m_txBuffer->Add (frame);
-      if (!done)
-        {
-          NS_LOG_INFO ("Exceeding Socket Tx Buffer Size");
-          m_errno = ERROR_MSGSIZE;
-        }
-      else
-        {
-          //ywj: total availabl window 
-          uint32_t win;
-          for (uint8_t i = 0; i < m_subflows.size(); i++){
-            win += AvailableWindow (i);
-          }
-          
-          NS_LOG_DEBUG (
-            "Added packet to the buffer - txBufSize = " << m_txBuffer->AppSize ()
-                                                        << " AvailableWindow = " << win << " state " << QuicStateName[m_socketState]);
-        }
-
-
-      if (m_socketState != IDLE)
-        {
-          if (!m_sendPendingDataEvent.IsRunning ())
-            {
-              // std::cout<<"4444 quic-socket-base.cc !m_sendPendingDataEvent.IsRunning!!!!! m_connected: "<<m_connected<<std::endl;
-              //SendPendingData(m_connected);
-              //Simulator::ScheduleNow (&QuicSocketBase::handler, this, 10, 5);
-              if (vnResponse)
-              {
-                SendPendingData(m_connected);
-                vnResponse = 0;
-              }else{
-                m_sendPendingDataEvent = Simulator::Schedule (
-                  TimeStep (1), &QuicSocketBase::SendPendingData, this,
-                  m_connected);
-                  // std::cout<<"----555555"<<m_connected<<std::endl;
-              }
-            }
-        }
-      if (done)
-        {
-          return frame->GetSize ();
-        }
-      return -1;
+  if(m_socketState != IDLE) {
+    bool done = m_txBuffer->Add(frame);
+    if(!done) {
+      NS_LOG_INFO ("Exceeding Socket Tx Buffer Size");
+      m_errno = ERROR_MSGSIZE;
+    } else {
+      //ywj: total availabl window
+      uint32_t win;
+      for(uint8_t i = 0; i < m_subflows.size(); i++) {
+        win += AvailableWindow (i);
+      }
+      NS_LOG_DEBUG("Added packet to the buffer - txBufSize = " << m_txBuffer->AppSize () << " AvailableWindow = " << win << " state " << QuicStateName[m_socketState]);
     }
-  else
-    {
 
-      NS_ABORT_MSG ("Sending in state" << QuicStateName[m_socketState]);
-      return -1;
+    if(m_socketState != IDLE) {
+      if(!m_sendPendingDataEvent.IsRunning()) {
+        // std::cout<<"4444 quic-socket-base.cc !m_sendPendingDataEvent.IsRunning!!!!! m_connected: "<<m_connected<<std::endl;
+        //SendPendingData(m_connected);
+        //Simulator::ScheduleNow (&QuicSocketBase::handler, this, 10, 5);
+        if(vnResponse) {
+          SendPendingData(m_connected);
+          vnResponse = 0;
+        } else {
+          m_sendPendingDataEvent = Simulator::Schedule(TimeStep(1), &QuicSocketBase::SendPendingData, this, m_connected);
+          // std::cout<<"----555555"<<m_connected<<std::endl;
+        }
+      }
     }
+    if (done) {
+      return frame->GetSize ();
+    }
+    return -1;
+  } else {
+    NS_ABORT_MSG ("Sending in state" << QuicStateName[m_socketState]);
+    return -1;
+  }
 }
 
 //ywj: test how to use extern variable
@@ -1115,171 +1092,145 @@ extern DataRate bw_1_vs;
 extern uint8_t m_pktScheAlgo_vs; //1. quic-rr (quic with round-robin), 2, mpquic-rr, 3. mpquic-ofo (our proposed scheduler for solving ofo issue)
 extern bool withMob_vs;
 
- void
-QuicSocketBase::InitialBW ()
+// MAMS Extension
+void QuicSocketBase::InitialBW ()
 {
   bw_ini0 = bw_0;
   bw_ini1 = bw_1;
   bwChangeCount++;
-  
 }
 
- void
-QuicSocketBase::InitialExVar ()
+// MAMS Extension
+void QuicSocketBase::InitialExVar ()
 {
-  if (m_pktScheAlgo_vs > 0)
-    {
-      owd_0 = owd_0_vs;
-      owd_1 = owd_1_vs;
-      errorRate = errorRate_vs;
-      bw_0 = bw_0_vs;
-      bw_1 = bw_1_vs; 
-      m_pktScheAlgo = m_pktScheAlgo_vs; 
-      withMob = withMob_vs; 
-      m_subflows[0]->m_tcb->m_cWnd = m_subflows[0]->m_tcb->m_initialCWnd; 
-      m_subflows[0]->m_tcb->m_ssThresh = m_subflows[0]->m_tcb->m_initialSsThresh; 
-      m_subflows[0]->SetInitialCwnd(5840); 
-      if (withMob) 
-        {
-          m_subflows[0]->RateChangeNotify(owd_0,owd_1,bw_0,bw_1);
-          m_subflows[1]->RateChangeNotify(owd_0,owd_1,bw_0,bw_1);
-        }
-      m_subflows[1]->SetInitialCwnd(m_subflows[0]->GetMinPrevLossCwnd());
+  if (m_pktScheAlgo_vs > 0) {
+    owd_0 = owd_0_vs;
+    owd_1 = owd_1_vs;
+    errorRate = errorRate_vs;
+    bw_0 = bw_0_vs;
+    bw_1 = bw_1_vs;
+    m_pktScheAlgo = m_pktScheAlgo_vs;
+    withMob = withMob_vs;
+    m_subflows[0]->m_tcb->m_cWnd = m_subflows[0]->m_tcb->m_initialCWnd;
+    m_subflows[0]->m_tcb->m_ssThresh = m_subflows[0]->m_tcb->m_initialSsThresh;
+    m_subflows[0]->SetInitialCwnd(5840);
+    if (withMob) {
+      m_subflows[0]->RateChangeNotify(owd_0,owd_1,bw_0,bw_1);
+      m_subflows[1]->RateChangeNotify(owd_0,owd_1,bw_0,bw_1);
     }
+    m_subflows[1]->SetInitialCwnd(m_subflows[0]->GetMinPrevLossCwnd());
+  }
   exVarChangeCount++;
-  
 }
 
-
-void
-QuicSocketBase::InitialRTT ()
+// MAMS Extension
+void QuicSocketBase::InitialRTT ()
 {
-  //std::cout<<"---extern owd_0: "<<owd_0.GetMicroSeconds()
-    //        <<" owd_1: "<<owd_1.GetMicroSeconds()<<std::endl;
-  if (m_subflows.size () == 1)
-    {
-      if (m_subflows[0]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) m_subflows[0]->lastMeasuredRtt = 2*owd_0;
+  if(m_subflows.size () == 1) {
+    if (m_subflows[0]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) {
+      m_subflows[0]->lastMeasuredRtt = 2*owd_0;
     }
-  else
-    {
-      if (m_subflows[0]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) m_subflows[0]->lastMeasuredRtt = 2*owd_0;
-      if (m_subflows[1]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) m_subflows[1]->lastMeasuredRtt = 2*owd_1;
+  } else {
+    if (m_subflows[0]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) {
+      m_subflows[0]->lastMeasuredRtt = 2*owd_0;
     }
+    if (m_subflows[1]->lastMeasuredRtt.Get().GetMicroSeconds() == 0) {
+      m_subflows[1]->lastMeasuredRtt = 2*owd_1;
+    }
+  }
 }
 
-
-
-uint8_t
-QuicSocketBase::GetSubflowToUse ()
+// MAMS Extension
+uint8_t QuicSocketBase::GetSubflowToUse ()
 {
 	NS_LOG_FUNCTION (this);
 
-  
-
   uint8_t nextSubFlow = 0;
-  switch (m_pktScheAlgo)
-  {
-  case 1: //quic-rr (quic with round-robin)
-    break;
-
-  case 2: // mpquic-rr
-    nextSubFlow = (m_lastUsedsFlowIdx + 1) % m_subflows.size();
-    std::cout<<"subflow.size == "<<(int)m_subflows.size()<<" returned path: "<<(int)nextSubFlow<<std::endl;
-    break;
-  
-  case 3: //mpquic-ofo (our proposed scheduler for solving ofo issue)
-  case 4: // ack returns on fastest path
-  case 5: // ack returns on fastest path 
-    if (m_subflows[0]->lastMeasuredRtt <= m_subflows[1]->lastMeasuredRtt and AvailableWindow(0) > GetSegSize()){
-      nextSubFlow = 0;
-    }
-    else
-    {
-      nextSubFlow = 1;
-    }
-    break;
-
-  default:
-    //NS_ABORT_MSG ("The value of m_pktScheAlgo is invalid!!!");
-    break;
+  switch (m_pktScheAlgo) {
+    case 1: //quic-rr (quic with round-robin)
+      break;
+    case 2: // mpquic-rr
+      nextSubFlow = (m_lastUsedsFlowIdx + 1) % m_subflows.size();
+      std::cout<<"subflow.size == "<<(int)m_subflows.size()<<" returned path: "<<(int)nextSubFlow<<std::endl;
+      break;
+    case 3: // mpquic-ofo (our proposed scheduler for solving ofo issue)
+    case 4: // ack returns on fastest path
+    case 5: // ack returns on fastest path
+      if (m_subflows[0]->lastMeasuredRtt <= m_subflows[1]->lastMeasuredRtt and AvailableWindow(0) > GetSegSize()) {
+        nextSubFlow = 0;
+      } else {
+        nextSubFlow = 1;
+      }
+      break;
+    default:
+      NS_ABORT_MSG ("The value of m_pktScheAlgo is invalid!!!");
+      break;
   }
-  
   return nextSubFlow;
 }
 
-
-
-
-uint32_t
-QuicSocketBase::SendPendingData (bool withAck)
+// MAMS Extension???
+uint32_t QuicSocketBase::SendPendingData (bool withAck)
 {
   NS_LOG_FUNCTION (this << withAck);
 
-  if (m_txBuffer->AppSize () == 0)
-    {
-      if (m_closeOnEmpty)
-        {
-          m_drainingPeriodEvent.Cancel ();
-          SendConnectionClosePacket (0, "Scheduled connection close - no error");
-        }
-      NS_LOG_INFO ("Nothing to send");
-      return false;
+  if (m_txBuffer->AppSize () == 0) {
+    if (m_closeOnEmpty) {
+      m_drainingPeriodEvent.Cancel ();
+      SendConnectionClosePacket (0, "Scheduled connection close - no error");
     }
+    NS_LOG_INFO ("Nothing to send");
+    return false;
+  }
 
   uint32_t nPacketsSent = 0;
 
   // prioritize stream 0
-  while (m_txBuffer->GetNumFrameStream0InBuffer () > 0)
-    {
-      // check pacing timer
-      if (m_subflows[0]->m_tcb->m_pacing)
-      {
-        NS_LOG_DEBUG ("Pacing is enabled");
-        if (m_pacingTimer.IsRunning ())
-          {
-            NS_LOG_INFO ("Skipping Packet due to pacing - for " << m_pacingTimer.GetDelayLeft ());
-            break;
-          }
-        NS_LOG_DEBUG ("Pacing Timer is not running");
+  while (m_txBuffer->GetNumFrameStream0InBuffer () > 0) {
+    // check pacing timer
+    if (m_subflows[0]->m_tcb->m_pacing) {
+      NS_LOG_DEBUG ("Pacing is enabled");
+      if (m_pacingTimer.IsRunning ()) {
+        NS_LOG_INFO ("Skipping Packet due to pacing - for " << m_pacingTimer.GetDelayLeft ());
+        break;
       }
-
-      uint32_t win = AvailableWindow (0); //just use first subflow to deal with stream 0
-      uint32_t connWin = ConnectionWindow (0);
-      uint32_t bytesInFlight = BytesInFlight (0);
-      
-      NS_LOG_DEBUG (
-      "BEFORE stream 0 Available Window " << win
-                                        << " Connection RWnd " << connWin
-                                        << " BytesInFlight " << bytesInFlight
-                                        << " BufferedSize " << m_txBuffer->AppSize ()
-                                        << " MaxPacketSize " << GetSegSize ());
-
-
-      NS_LOG_DEBUG ("Send a frame for stream 0");
-      //SequenceNumber32 next = ++m_tcb->m_nextTxSequence;
-      SequenceNumber32 next = ++m_subflows[0]->m_nextPktNum;
-      NS_LOG_INFO ("SN " << m_subflows[0]->m_nextPktNum);
-
-      SendDataPacket (next, 0, m_subflows[0]->m_queue_ack, 0);
-      
-      win = AvailableWindow (0);
-      connWin = ConnectionWindow (0);
-      bytesInFlight = BytesInFlight (0);
-      NS_LOG_DEBUG (
-        "AFTER stream 0 Available Window " << win
-                                           << " Connection RWnd " << connWin
-                                           << " BytesInFlight " << bytesInFlight
-                                           << " BufferedSize " << m_txBuffer->AppSize ()
-                                           << " MaxPacketSize " << GetSegSize ());
-
-      ++nPacketsSent;
+      NS_LOG_DEBUG ("Pacing Timer is not running");
     }
 
-  for (uint8_t i = 0; i < m_subflows.size(); i++)         //ywj: must add this for loop to iterate all available paths
-  {
-      uint32_t win = AvailableWindow (m_lastUsedsFlowIdx);
-      uint32_t connWin = ConnectionWindow (m_lastUsedsFlowIdx);
-      uint32_t bytesInFlight = BytesInFlight (m_lastUsedsFlowIdx);
+    uint32_t win = AvailableWindow (0); //just use first subflow to deal with stream 0
+    uint32_t connWin = ConnectionWindow (0);
+    uint32_t bytesInFlight = BytesInFlight (0);
+
+    NS_LOG_DEBUG ( "BEFORE stream 0 Available Window " << win
+                                      << " Connection RWnd " << connWin
+                                      << " BytesInFlight " << bytesInFlight
+                                      << " BufferedSize " << m_txBuffer->AppSize ()
+                                      << " MaxPacketSize " << GetSegSize ());
+
+    NS_LOG_DEBUG ("Send a frame for stream 0");
+    //SequenceNumber32 next = ++m_tcb->m_nextTxSequence;
+    SequenceNumber32 next = ++m_subflows[0]->m_nextPktNum;
+    NS_LOG_INFO ("SN " << m_subflows[0]->m_nextPktNum);
+
+    SendDataPacket (next, 0, m_subflows[0]->m_queue_ack, 0);
+
+    win = AvailableWindow (0);
+    connWin = ConnectionWindow (0);
+    bytesInFlight = BytesInFlight (0);
+    NS_LOG_DEBUG ("AFTER stream 0 Available Window " << win
+                                          << " Connection RWnd " << connWin
+                                          << " BytesInFlight " << bytesInFlight
+                                          << " BufferedSize " << m_txBuffer->AppSize ()
+                                          << " MaxPacketSize " << GetSegSize ());
+
+    ++nPacketsSent;
+  }
+
+  // MAMS Extension
+  for (uint8_t i = 0; i < m_subflows.size(); i++) {        //ywj: must add this for loop to iterate all available paths
+    uint32_t win = AvailableWindow (m_lastUsedsFlowIdx);
+    uint32_t connWin = ConnectionWindow (m_lastUsedsFlowIdx);
+    uint32_t bytesInFlight = BytesInFlight (m_lastUsedsFlowIdx);
 
       //if (win == 0)
       if (win < GetSegSize ())  //if this condition is true, try another path
@@ -1413,8 +1364,8 @@ QuicSocketBase::GetSegSize (void) const
   return m_tcb->m_segmentSize;
 }
 
-void
-QuicSocketBase::MaybeQueueAck (uint8_t pathId)
+// MAMS Extension
+void QuicSocketBase::MaybeQueueAck (uint8_t pathId)
 {
   NS_LOG_FUNCTION (this);
   ++m_subflows[pathId]->m_numPacketsReceivedSinceLastAckSent;
