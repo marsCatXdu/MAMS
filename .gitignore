@@ -6,9 +6,13 @@ __pycache__
 serverQUIC*.txt
 clientQUIC*.txt
 *Log*.txt
+wmp*.txt
+flow
 .lock-waf_*build
 .vscode-ctags
 *.plt
+FlowVSThroughput_.png
+output.png
 
 build
 .waf3-*
