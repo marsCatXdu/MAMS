@@ -315,6 +315,7 @@ Socket::NotifyDataRecv (void)
 Address 
 Socket::GetRemoteAddr ()
 {
+  return Address ();        // Original code returns nothing, which will cause compile error with -Werror flag.
 }
 
 void 

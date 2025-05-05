@@ -1,0 +1,14 @@
+__pycache__
+.vscode
+
+*.pcap
+*.o
+serverQUIC*.txt
+clientQUIC*.txt
+*Log*.txt
+.lock-waf_*build
+.vscode-ctags
+*.plt
+
+build
+.waf3-*

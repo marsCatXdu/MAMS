@@ -19,7 +19,7 @@
  *          Federico Chiariotti <whatever@blbl.it>
  *          Michele Polese <michele.polese@gmail.com>
  *          Davide Marcato <davidemarcato@outlook.com>
- *          
+ *
  */
 
 #include "ns3/core-module.h"
@@ -99,7 +99,7 @@ Traces(uint32_t serverId, std::string pathVersion, std::string finalPart)
 
   std::ostringstream path1rtt;
   path1rtt << "/NodeList/" << serverId << "/$ns3::QuicL4Protocol/SocketList/*/QuicSocketBase/RTT1";
-  
+
   std::ostringstream file0rtt;
   file0rtt << pathVersion << "QUIC-rtt-change-p0-"  << serverId << "" << finalPart;
   std::ostringstream file1rtt;
@@ -158,7 +158,7 @@ void ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, G
 		Ptr<Ipv4FlowClassifier> classing = DynamicCast<Ipv4FlowClassifier> (fmhelper->GetClassifier());
 		for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator stats = flowStats.begin (); stats != flowStats.end (); ++stats)
 		{
-			Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (stats->first);
+			// Ipv4FlowClassifier::FiveTuple fiveTuple = classing->FindFlow (stats->first);
 			// std::cout<<"Flow ID			: " << stats->first <<" ; "<< fiveTuple.sourceAddress <<" -----> "<<fiveTuple.destinationAddress<<std::endl;
 			// std::cout<<"Tx Packets = " << stats->second.txPackets<<std::endl;
 			// std::cout<<"Rx Packets = " << stats->second.rxPackets<<std::endl;
@@ -175,7 +175,7 @@ void ThroughputMonitor (FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, G
         DataSet1.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[1])*8/1024/1024);
         RxBytesList[1] = stats->second.rxBytes;
       }
-      
+
 			//std::cout<<"---------------------------------------------------------------------------"<<std::endl;
 		}
 			Simulator::Schedule(Seconds(1),&ThroughputMonitor, fmhelper, flowMon,DataSet, DataSet1);
@@ -195,21 +195,21 @@ ModifyLinkRate(NetDeviceContainer *ptp, QuicEchoClientHelper echoClient, DataRat
     if (subflowId == 0) echoClient.SetBW0(lr);
     else if (subflowId == 1) echoClient.SetBW1(lr);
     else std::cout<<"subflowId may be wrong!!!"<<std::endl;
-    
+
 }
-  
+
 
 int
 main (int argc, char *argv[])
 {
   std::cout
       << "\n\n#################### SIMULATION SET-UP ####################\n\n\n";
-  
+
   //  Ptr<RateErrorModel> em = CreateObjectWithAttributes<RateErrorModel> (
   //     "RanVar", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
   //     "ErrorRate", DoubleValue (0.0001));
 
-  LogLevel log_precision = LOG_ALL;
+  // LogLevel log_precision = LOG_ALL;
   Time::SetResolution (Time::NS);
   LogComponentEnableAll (LOG_PREFIX_TIME);
   LogComponentEnableAll (LOG_PREFIX_FUNC);
@@ -217,13 +217,13 @@ main (int argc, char *argv[])
 
   // LogComponentEnable ("QuicSocketTxScheduler", log_precision);
 /*   LogComponentEnable ("QuicEchoClientApplication", log_precision);
-  LogComponentEnable ("QuicEchoServerApplication", log_precision);  
+  LogComponentEnable ("QuicEchoServerApplication", log_precision);
   LogComponentEnable ("QuicHeader", log_precision);
   LogComponentEnable ("QuicSocketBase", log_precision);
   LogComponentEnable ("QuicStreamBase", log_precision);
   LogComponentEnable ("QuicL4Protocol", log_precision);
- 
-  
+
+
   LogComponentEnable ("QuicSocketRxBuffer", log_precision);
   LogComponentEnable ("QuicSocketTxBuffer", log_precision);
   LogComponentEnable ("QuicHeader", log_precision);
@@ -278,7 +278,7 @@ main (int argc, char *argv[])
   delay[1] = delay1;
 
 
-  // Config::SetDefault ("ns3::QuicScheduler::SchedulerType", StringValue ("rtt"));  
+  // Config::SetDefault ("ns3::QuicScheduler::SchedulerType", StringValue ("rtt"));
   // Config::SetDefault ("ns3::MpQuicSubFlow::CCType", StringValue ("OLIA"));
   Config::SetDefault ("ns3::QuicStreamBase::StreamSndBufSize",UintegerValue(10485760));
   Config::SetDefault ("ns3::QuicStreamBase::StreamRcvBufSize",UintegerValue(10485760));
@@ -303,22 +303,22 @@ main (int argc, char *argv[])
   QuicHelper stack;
   stack.InstallQuic (nodes);
 
-  
+
   float delayInt [2];
-  for (int i = 0; i < delay.size(); i++)
+  for (uint32_t i = 0; i < delay.size(); i++)
     {
       std::stringstream ss(delay[i]);
-      for(int j = 0; ss >> j; ) 
+      for(uint32_t j = 0; ss >> j; )
         {
           delayInt [i] = (float) j / 1000;
         }
     }
 
   float bwInt [2];
-  for (int i = 0; i < rate.size(); i++)
+  for (uint32_t i = 0; i < rate.size(); i++)
     {
       std::stringstream ss(rate[i]);
-      for(int j = 0; ss >> j; ) 
+      for(int j = 0; ss >> j; )
         {
           bwInt [i] = (float) j;
         }
@@ -341,7 +341,7 @@ main (int argc, char *argv[])
 
   // double errorRate = 0.1;
 
-    Ptr<RateErrorModel> em1 = 
+    Ptr<RateErrorModel> em1 =
     CreateObjectWithAttributes<RateErrorModel> ("RanVar", StringValue ("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"), "ErrorRate", DoubleValue (errorRate));
 
   for(int i=0; i < sf; i++)
@@ -360,7 +360,7 @@ main (int argc, char *argv[])
       std::cout<<"netdevice 0 "<<netDevices[i].Get(0)
               <<"netdevice 1 "<<netDevices[i].Get(1)
               <<"\n";
-      
+
       // Attribution of the IP addresses
       std::stringstream netAddr;
       netAddr << "10.1." << (i+1) << ".0";
@@ -378,7 +378,7 @@ main (int argc, char *argv[])
   {
       std::cout<<"ipaddr0: "<<ipaddr.GetAddress(0)<<" ipaddr1: "<<ipaddr.GetAddress(1);
   }
-  
+
 
   uint8_t dlPort = 9;
 
@@ -389,7 +389,7 @@ main (int argc, char *argv[])
   serverApps.Stop (simulationEndTime);
 
   //QuicEchoClientHelper echoClient (ground_station_interfaces[1].GetAddress(0), 9);
-  //for our multipath scenario, there are 4 interfaces in total, [0],[1] are for gs1; [2],[3] are for gs2 
+  //for our multipath scenario, there are 4 interfaces in total, [0],[1] are for gs1; [2],[3] are for gs2
   QuicEchoClientHelper echoClient (ipv4Ints[0].GetAddress (1), dlPort);
   echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
   echoClient.SetAttribute ("Interval", TimeValue (Seconds (0.01)));
@@ -458,7 +458,7 @@ main (int argc, char *argv[])
     // Set the labels for each axis.
     gnuplot.SetLegend ("Time(s)", "Throughput(Mbps)");
 
-     
+
    Gnuplot2dDataset dataset;
    dataset.SetTitle (dataTitle);
    dataset.SetStyle (Gnuplot2dDataset::LINES_POINTS);
@@ -471,7 +471,7 @@ main (int argc, char *argv[])
   // call the flow monitor function
   // std::ofstream outfile1;
   // outfile1.open("flowmonitor.txt");
-  ThroughputMonitor(&flowmon, monitor, dataset, dataset1); 
+  ThroughputMonitor(&flowmon, monitor, dataset, dataset1);
   // outfile1.close();
 
   if (isMob)
@@ -491,7 +491,7 @@ main (int argc, char *argv[])
 
 
       if (isMob)
-      { 
+      {
         for (int i = 0; i < 50; i++)
           {
             for (int j = 1; j < 5; j++)
@@ -514,11 +514,9 @@ main (int argc, char *argv[])
                   Simulator::Schedule (Seconds (start_time + (i * 4 + j + 1) * delayInt[1] * 2), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(bwInt[0]/5*(j+1))+"Mbps"), 1);
                   // std::cout<<"time: "<< start_time + (i * 4 + j) * delayInt[1] * 2 <<" path1 : rate "<<bwInt[0]/5*(j+1)<<"Mbps"<<"\n";
                 }
-                
               }
           }
       }
-  
 
 
   Simulator::Stop (simulationEndTime);
@@ -560,10 +558,8 @@ main (int argc, char *argv[])
       outfile << "  Rx time: " << i->second.timeLastRxPacket - i->second.timeFirstRxPacket<<"\n";
       outfile << "delay sum" << i->second.delaySum<<"\n";
       std::cout  <<  "  Tx Bytes:   " << i->second.txBytes << "\n";
-      std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / simulationEndTime.GetSeconds () / 1000 / 1000  << " Mbps\n";    
-      std::cout <<  "  Tx time: " << (i->second.timeLastTxPacket - i->second.timeFirstTxPacket).GetSeconds()<<"\n";  
-    
-    
+      std::cout << "  Throughput: " << i->second.rxBytes * 8.0 / simulationEndTime.GetSeconds () / 1000 / 1000  << " Mbps\n";
+      std::cout <<  "  Tx time: " << (i->second.timeLastTxPacket - i->second.timeFirstTxPacket).GetSeconds()<<"\n";
     } */
 
   outfile.close();

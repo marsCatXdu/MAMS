@@ -29,6 +29,8 @@
 #include <sstream>
 #include <vector>
 
+#include <stddef.h>
+#include <limits>
 /**
  * \file
  * \ingroup core

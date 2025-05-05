@@ -2651,7 +2651,8 @@ QuicSocketBase::SendInitialHandshake (uint8_t type,
       // sFlow->dAddr    = InetSocketAddress("2.0.0.2").GetIpv4 ();
       sFlow->sAddr = m_endPoint->GetLocalAddress ();
       sFlow->sPort = m_endPoint->GetLocalPort ();
-      bool x = sFlow->TraceConnectWithoutContext ("SubflowCwnd", MakeCallback (&QuicSocketBase::TraceCwnd1, this));
+      // comment out unused variable x
+      // bool x = sFlow->TraceConnectWithoutContext ("SubflowCwnd", MakeCallback (&QuicSocketBase::TraceCwnd1, this));
       sFlow->TraceConnectWithoutContext ("Throughput", MakeCallback (&QuicSocketBase::TraceThroughput1,this));
       sFlow->TraceConnectWithoutContext ("RTT", MakeCallback (&QuicSocketBase::TraceRTT1, this));
       //client create subflow
@@ -2797,8 +2798,8 @@ QuicSocketBase::OnSendingAckFrame (int pathId)
 
   std::vector<SequenceNumber32>::const_iterator curr_rec_it =
     m_subflows[pathId]->m_receivedPacketNumbers.begin ();
-      std::vector<SequenceNumber32>::const_iterator curr_rec_it1 =
-    m_subflows[pathId]->m_receivedPacketNumbers.begin ();
+  // comment out unused variable next_rec_it
+  // std::vector<SequenceNumber32>::const_iterator curr_rec_it1 = m_subflows[pathId]->m_receivedPacketNumbers.begin ();
   std::vector<SequenceNumber32>::const_iterator next_rec_it =
     m_subflows[pathId]->m_receivedPacketNumbers.begin () + 1;
 
@@ -2964,7 +2965,7 @@ QuicSocketBase::OnReceivedAckFrame (QuicSubheader &sub)
       rttLog1.close();
     }
 
-    for (int i = 0; i < m_subflows.size(); i++){
+    for (uint32_t i = 0; i < m_subflows.size(); i++){
       std::cout<<Simulator::Now().GetSeconds()<<" after update rtt"<<i<<": "<<m_subflows[i]->lastMeasuredRtt<<std::endl;
     }
   }
@@ -4306,7 +4307,7 @@ end:
   int sst1,sst2,sst3;
   double T1,T2,T3;
   double p1,p2,p3; 
-  double ttt = RTT/2;
+  // double ttt = RTT/2;
   if (T < RTT/2)
   {
     currentData = 0;
