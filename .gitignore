@@ -11,8 +11,9 @@ flow
 .lock-waf_*build
 .vscode-ctags
 *.plt
-FlowVSThroughput_.png
+FlowVSThroughput_*.png
 output.png
+data
 
 build
 .waf3-*

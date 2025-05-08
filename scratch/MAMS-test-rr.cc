@@ -11,8 +11,6 @@
 #include "ns3/gnuplot.h"
 #include "ns3/quic-socket-base.h"
 
-#include "common.hpp"
-
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -104,15 +102,15 @@ void ThroughputMonitor(FlowMonitorHelper *fmhelper, Ptr<FlowMonitor> flowMon, Gn
     {
         // updata gnuplot data
         if(stats->first == 1) {
-            DataSet.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[0])*8/1024/1024*5);
+            DataSet.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[0])*8/1024/1024*10);
             RxBytesList[0] = stats->second.rxBytes;
         }
         if(stats->first == 3) {
-            DataSet1.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[1])*8/1024/1024*5);
+            DataSet1.Add((double)(Simulator::Now().GetSeconds()-1),(double)(stats->second.rxBytes-RxBytesList[1])*8/1024/1024*10);
             RxBytesList[1] = stats->second.rxBytes;
         }
     }
-    Simulator::Schedule(Seconds(0.2),&ThroughputMonitor, fmhelper, flowMon, DataSet, DataSet1);
+    Simulator::Schedule(Seconds(0.1),&ThroughputMonitor, fmhelper, flowMon, DataSet, DataSet1);
 }
 
 
@@ -129,15 +127,6 @@ void ModifyLinkRate(NetDeviceContainer *ptp, QuicEchoClientHelper echoClient, Da
 }
 
 
-/**
- * Outline:
- *   1. Create 2 nodes
- *   2. Install QUIC stack (QuicHelper)
- *   3. Create 2 p2p links, attach error model
- *   4. Install echo apps
- *   5. Schedule monitoring & mobility events
- *   6. Run 50s
- */
 int main (int argc, char *argv[])
 {
     Time::SetResolution(Time::NS);
@@ -146,35 +135,19 @@ int main (int argc, char *argv[])
     LogComponentEnableAll(LOG_PREFIX_NODE);
 
     bool isMob = true;
-    bool randMob = false;
     std::vector<std::string> rate(2);
     std::vector<std::string> delay(2);
     std::vector<NetDeviceContainer> netDevices(2);
-    std::string dataRate0 = "10Mbps";
-    std::string delay1 = "20ms";
+
+    rate[0] = "10Mbps";
+    rate[1] = "10Mbps";
     delay[0] = "10ms";
-    rate[1] = "50Mbps";
+    delay[1] = "20ms";
 
     double errorRate = 0.000004;
-    uint8_t schAlgo = 3;
+    uint8_t schAlgo = 2;
     std::string maxBuffSize = "5p";
     uint64_t fileSize = 5e6;
-
-    CommandLine cmd;
-    cmd.Usage("Simulation of bulkSend over MPQUIC.\n");
-    cmd.AddValue("isMob", "mobility scenario", isMob);
-    cmd.AddValue("randMob", "mobility pattern", randMob);
-    cmd.AddValue("errorRate", "The percentage of packets that should be lost, expressed as a double where 1 == 100%", errorRate);
-    cmd.AddValue("fileSize", "file size", fileSize);
-    cmd.AddValue("delay1", "The initial delay for path1", delay1);
-    cmd.AddValue("dataRate0", "The data rate for path 0", dataRate0);
-    cmd.AddValue("maxBuffSize", "max buffer size of router", maxBuffSize);
-    cmd.AddValue("schAlgo", "mutipath scheduler algorithm", schAlgo); // 2, mpquic-rr, 3. MAMS, 5. LATE
-
-    cmd.Parse (argc, argv);
-
-    rate[0] = dataRate0;
-    delay[1] = delay1;
 
     Config::SetDefault("ns3::QuicStreamBase::StreamSndBufSize",UintegerValue(10485760));
     Config::SetDefault("ns3::QuicStreamBase::StreamRcvBufSize",UintegerValue(10485760));
@@ -184,11 +157,13 @@ int main (int argc, char *argv[])
     Config::SetDefault("ns3::MpQuicSubFlow::delay", DoubleValue (0.03));
     Config::SetDefault("ns3::DropTailQueue<Packet>::MaxSize", StringValue (maxBuffSize));
 
+    // Node means the client and the server
     NodeContainer nodes;
     nodes.Create(2);
     auto n1 = nodes.Get(0);
     auto n2 = nodes.Get(1);
 
+    // Subflow means the path between the client and the server. Should be equal to the number of interfaces
     int sf = 2;
     Time simulationEndTime = Seconds(8);
 
@@ -215,10 +190,8 @@ int main (int argc, char *argv[])
 
     std::vector<Ipv4InterfaceContainer> ipv4Ints;
 
-    Ptr<RateErrorModel> em1 = CreateObjectWithAttributes<RateErrorModel>("RanVar",
-                                                                         StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
-                                                                         "ErrorRate",
-                                                                         DoubleValue (errorRate));
+    Ptr<RateErrorModel> em1 = CreateObjectWithAttributes<RateErrorModel>("RanVar", StringValue("ns3::UniformRandomVariable[Min=0.0|Max=1.0]"),
+                                                                         "ErrorRate", DoubleValue (errorRate));
 
     for(int i=0; i < sf; i++) {
         // Creation of the point to point link between hots
@@ -281,7 +254,7 @@ int main (int argc, char *argv[])
     Packet::EnablePrinting();
     Packet::EnableChecking();
 
-    std::string fileNameWithNoExtension = "FlowVSThroughput_";
+    std::string fileNameWithNoExtension = "FlowVSThroughput_MPQUIC_RR_";
     std::string graphicsFileName        = fileNameWithNoExtension + ".png";
     std::string plotFileName            = fileNameWithNoExtension + ".plt";
     std::string plotTitle               = "Throughput vs Time";
@@ -310,28 +283,6 @@ int main (int argc, char *argv[])
 
     if(isMob) {
         (void)bwInt;
-
-        // double UEPosition = 0.0;
-        // double UESpeed = 20.0;
-        // double APPosition = 0.0;
-        // double APRadius = 200.0;
-        // double APCapacityMbps = 5.0;
-        // double BSPosition = 400.0;
-        // double BSRadius = 400.0;
-        // double BSCapacityMbps = 5.0;
-
-        // for(double i = 0; i < 20; i+=0.1) {
-        //     double x = i*30;
-        //     // auto [wifiCap, lteCap] = capacity_wifi_lte(x);
-        //     std::pair<double,double> capacity = capacity_wifi_lte(x);
-        //     double wifiCap = capacity.first;
-        //     double lteCap = capacity.second;
-        //     std::cout << "x=" << x << " m  →  Wi-Fi " << std::to_string(wifiCap) << " Mbps,  LTE " << std::to_string(lteCap) << " Mbps\n";
-
-        //     Simulator::Schedule(Seconds(i), &ModifyLinkRate, &netDevices[0], echoClient, DataRate(std::to_string(wifiCap)+"Mbps"), 0);
-        //     Simulator::Schedule(Seconds(i), &ModifyLinkRate, &netDevices[1], echoClient, DataRate(std::to_string(lteCap)+"Mbps"), 1);
-        // }
-
         double bwMbps[2] = {1, 8};
         for(int i = 0; i < 100; i++) {
             bwMbps[0] = bwMbps[0] + 0.1;
@@ -389,9 +340,6 @@ int main (int argc, char *argv[])
     // std::cout << "\n\n#################### RUN FINISHED ####################\n\n\n";
     Simulator::Destroy ();
 
-    // Ptr<PacketSink> sink1 = DynamicCast<PacketSink> (sinkApps.Get (0));
-    // std::cout << "Total Bytes Received: " << sink1->GetTotalRx () << std::endl;
-    // std::cout << "\n\n#################### SIMULATION END ####################\n\n\n";
     return 0;
 }
 
