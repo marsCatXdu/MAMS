@@ -43,15 +43,7 @@ NS_LOG_COMPONENT_DEFINE ("QuicSocketTxBuffer");
 
 TypeId QuicSocketTxItem::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::QuicSocketTxItem")
-    .SetParent<Object>()
-    .SetGroupName ("Internet")
-    .AddConstructor<QuicSocketTxItem>()
-//    .AddTraceSource ("UnackSequence",
-//                     "First unacknowledged sequence number (SND.UNA)",
-//                     MakeTraceSourceAccessor (&QuicSocketTxBuffer::m_sentSize),
-//                     "ns3::SequenceNumber32TracedValueCallback")
-  ;
+  static TypeId tid = TypeId ("ns3::QuicSocketTxItem").SetParent<Object>().SetGroupName ("Internet").AddConstructor<QuicSocketTxItem>();
   return tid;
 }
 
@@ -191,20 +183,11 @@ NS_OBJECT_ENSURE_REGISTERED (QuicSocketTxBuffer);
 
 TypeId QuicSocketTxBuffer::GetTypeId (void)
 {
-  static TypeId tid =
-    TypeId ("ns3::QuicSocketTxBuffer").SetParent<Object>().SetGroupName (
-      "Internet").AddConstructor<QuicSocketTxBuffer>()
-//    .AddTraceSource ("UnackSequence",
-//                     "First unacknowledged sequence number (SND.UNA)",
-//                     MakeTraceSourceAccessor (&QuicSocketTxBuffer::m_sentSize),
-//                     "ns3::SequenceNumber32TracedValueCallback")
-  ;
+  static TypeId tid = TypeId("ns3::QuicSocketTxBuffer").SetParent<Object>().SetGroupName("Internet").AddConstructor<QuicSocketTxBuffer>();
   return tid;
 }
 
-QuicSocketTxBuffer::QuicSocketTxBuffer () :
-  m_maxBuffer (32768), m_streamZeroSize (0), m_sentSize (0), m_numFrameStream0InBuffer (
-    0)
+QuicSocketTxBuffer::QuicSocketTxBuffer(): m_maxBuffer(32768), m_streamZeroSize(0), m_sentSize(0), m_numFrameStream0InBuffer(0)
 {
   m_streamZeroList = QuicTxPacketList ();
   m_sentList = QuicTxPacketList ();
@@ -212,7 +195,6 @@ QuicSocketTxBuffer::QuicSocketTxBuffer () :
   m_subflowSentList.insert(m_subflowSentList.end(), QuicTxPacketList ());
   // m_sentList0 = QuicTxPacketList ();
   // m_sentList1 = QuicTxPacketList ();
-
 }
 
 QuicSocketTxBuffer::~QuicSocketTxBuffer (void)
@@ -260,80 +242,66 @@ bool QuicSocketTxBuffer::Add (Ptr<Packet> p)
   NS_LOG_FUNCTION (this << p);
   QuicSubheader qsb;
 
-  uint32_t headerSize = p->PeekHeader (qsb);
-  NS_LOG_INFO (
-    "Try to append " << p->GetSize () << " bytes " << ", availSize=" << Available () << " offset " << qsb.GetOffset () << " on stream " << qsb.GetStreamId ());
+  uint32_t headerSize = p->PeekHeader(qsb);
+  NS_LOG_INFO("Try to append " << p->GetSize() << " bytes " << ", availSize=" << Available() << " offset " << qsb.GetOffset() << " on stream " << qsb.GetStreamId());
 
-  if (p->GetSize () <= Available ())
-    {
-      if (p->GetSize () > 0)
-        {
-          Ptr<QuicSocketTxItem> item = CreateObject<QuicSocketTxItem> ();
-          item->m_packet = p;
-          // check to which stream this packet belongs to
-          uint32_t streamId = 0;
-          bool isStream = false;
-          if (headerSize)
-            {
-              streamId = qsb.GetStreamId ();
-              isStream = qsb.IsStream ();
-            }
-          else
-            {
-              NS_ABORT_MSG ("No QuicSubheader in this QUIC frame " << p);
-            }
-          item->m_isStream = isStream;
-          item->m_isStream0 = (streamId == 0);
-          m_numFrameStream0InBuffer += (streamId == 0);
-          if (streamId == 0)
-            {
-              m_streamZeroList.insert (m_streamZeroList.end (), item);
-              m_streamZeroSize += item->m_packet->GetSize ();
-            }
-          else
-            {
-              m_scheduler->Add (item, false);
-              m_fileSize = qsb.GetOffset () + p->GetSize () - qsb.GetSerializedSize ();
-            }
+  if(p->GetSize() <= Available()) {
+    if (p->GetSize() > 0) {
+      Ptr<QuicSocketTxItem> item = CreateObject<QuicSocketTxItem> ();
+      item->m_packet = p;
+      // check to which stream this packet belongs to
+      uint32_t streamId = 0;
+      bool isStream = false;
+      if (headerSize) {
+        streamId = qsb.GetStreamId ();
+        isStream = qsb.IsStream ();
+      } else {
+        NS_ABORT_MSG ("No QuicSubheader in this QUIC frame " << p);
+      }
+      item->m_isStream = isStream;
+      item->m_isStream0 = (streamId == 0);
+      m_numFrameStream0InBuffer += (streamId == 0);
+      if (streamId == 0) {
+        m_streamZeroList.insert (m_streamZeroList.end (), item);
+        m_streamZeroSize += item->m_packet->GetSize ();
+      } else {
+        m_scheduler->Add (item, false);
+        m_fileSize = qsb.GetOffset () + p->GetSize () - qsb.GetSerializedSize ();
+      }
 
-          NS_LOG_INFO (
-            "Update: Application Size = " << m_scheduler->AppSize () << ", offset " << qsb.GetOffset ());
-          return true;
-        }
-      else
-        {
-          NS_LOG_WARN ("Discarded. Try to insert empty packet.");
-          return false;
-        }
+      NS_LOG_INFO("Update: Application Size = " << m_scheduler->AppSize () << ", offset " << qsb.GetOffset ());
+      return true;
+    } else {
+      NS_LOG_WARN ("Discarded. Try to insert empty packet.");
+      return false;
     }
+  }
   NS_LOG_WARN ("Rejected. Not enough room to buffer packet.");
   return false;
 }
 
-Ptr<Packet> QuicSocketTxBuffer::NextStream0Sequence (
-  const SequenceNumber32 seq)
+Ptr<Packet> QuicSocketTxBuffer::NextStream0Sequence(const SequenceNumber32 seq)
 {
   NS_LOG_FUNCTION (this << seq);
 
   Ptr<QuicSocketTxItem> outItem = CreateObject<QuicSocketTxItem> ();
 
   QuicTxPacketList::iterator it = m_streamZeroList.begin ();
-  if (it != m_streamZeroList.end ())
-    {
-      Ptr<Packet> currentPacket = (*it)->m_packet;
-      outItem->m_packetNumber = seq;
-      outItem->m_lastSent = Now ();
-      outItem->m_packet = currentPacket;
-      outItem->m_isStream0 = (*it)->m_isStream0;
-      m_streamZeroList.erase (it);
-      m_streamZeroSize -= currentPacket->GetSize ();
-      //m_sentList.insert (m_sentList.end (), outItem);
-      m_subflowSentList[0].insert (m_subflowSentList[0].end (), outItem); //ywj: only use path 0 to deal with stream 0
-      m_sentSize += outItem->m_packet->GetSize ();
-      --m_numFrameStream0InBuffer;
-      Ptr<Packet> toRet = outItem->m_packet;
-      return toRet;
-    }
+  if (it != m_streamZeroList.end ()) {
+    Ptr<Packet> currentPacket = (*it)->m_packet;
+    outItem->m_packetNumber = seq;
+    outItem->m_lastSent = Now ();
+    outItem->m_packet = currentPacket;
+    outItem->m_isStream0 = (*it)->m_isStream0;
+    m_streamZeroList.erase (it);
+    m_streamZeroSize -= currentPacket->GetSize ();
+    //m_sentList.insert (m_sentList.end (), outItem);
+    m_subflowSentList[0].insert (m_subflowSentList[0].end (), outItem); //ywj: only use path 0 to deal with stream 0
+    m_sentSize += outItem->m_packet->GetSize ();
+    --m_numFrameStream0InBuffer;
+    Ptr<Packet> toRet = outItem->m_packet;
+    return toRet;
+  }
   return 0;
 }
 
@@ -348,47 +316,19 @@ Ptr<Packet> QuicSocketTxBuffer::NextSequence (uint32_t numBytes,
 {
   NS_LOG_FUNCTION (this << numBytes << seq);
 
-
   Ptr<QuicSocketTxItem> outItem = GetNewSegment (numBytes, pathId, Q, isFast, QUpdate, algo);
 
-  if (outItem != nullptr)
-    {
-      NS_LOG_INFO ("Extracting " << outItem->m_packet->GetSize () << " bytes");
-      outItem->m_packetNumber = seq;
-      outItem->m_lastSent = Now ();
-      Ptr<Packet> toRet = outItem->m_packet;
-      return toRet;
-    }
-  else
-    {
-      NS_LOG_INFO ("Empty packet");
-      return Create<Packet>();
-    }
-
+  if (outItem != nullptr) {
+    NS_LOG_INFO ("Extracting " << outItem->m_packet->GetSize () << " bytes");
+    outItem->m_packetNumber = seq;
+    outItem->m_lastSent = Now ();
+    Ptr<Packet> toRet = outItem->m_packet;
+    return toRet;
+  } else {
+    NS_LOG_INFO ("Empty packet");
+    return Create<Packet>();
+  }
 }
-
-// Ptr<Packet> QuicSocketTxBuffer::NextSequence (uint32_t numBytes,
-//                                               const SequenceNumber32 seq)
-// {
-//   NS_LOG_FUNCTION (this << numBytes << seq);
-
-//   Ptr<QuicSocketTxItem> outItem = GetNewSegment (numBytes);
-
-//   if (outItem != nullptr)
-//     {
-//       NS_LOG_INFO ("Extracting " << outItem->m_packet->GetSize () << " bytes");
-//       outItem->m_packetNumber = seq;
-//       outItem->m_lastSent = Now ();
-//       Ptr<Packet> toRet = outItem->m_packet;
-//       return toRet;
-//     }
-//   else
-//     {
-//       NS_LOG_INFO ("Empty packet");
-//       return Create<Packet>();
-//     }
-
-// }
 
 Ptr<QuicSocketTxItem> QuicSocketTxBuffer::GetNewSegment (uint32_t numBytes, uint32_t pathId, uint64_t Q, bool isFast, bool QUpdate, uint8_t algo)
 {
@@ -404,10 +344,7 @@ Ptr<QuicSocketTxItem> QuicSocketTxBuffer::GetNewSegment (uint32_t numBytes, uint
       m_sentSize += outItem->m_packet->GetSize ();
     }
 
-  NS_LOG_INFO (
-    "Update: Sent Size = " << m_sentSize << " remaining App Size " << m_scheduler->AppSize () << " object size " << outItem->m_packet->GetSize ());
-
-  //Print(std::cout);
+  NS_LOG_INFO ("Update: Sent Size = " << m_sentSize << " remaining App Size " << m_scheduler->AppSize () << " object size " << outItem->m_packet->GetSize ());
 
   return outItem;
 }
@@ -419,9 +356,6 @@ std::vector<Ptr<QuicSocketTxItem> > QuicSocketTxBuffer::OnAckUpdate (
   const std::vector<uint32_t> &gaps, uint8_t pathId)
 {
   NS_LOG_FUNCTION (this);
-
-  // findSentList (pathId);
-
 
   std::vector<uint32_t> compAckBlocks = additionalAckBlocks;
   std::vector<uint32_t> compGaps = gaps;
@@ -450,8 +384,7 @@ std::vector<Ptr<QuicSocketTxItem> > QuicSocketTxBuffer::OnAckUpdate (
   //NS_LOG_INFO ("Largest ACK: " << largestAcknowledged << ", blocks: " << block_print.str () << ", gaps: " << gap_print.str ());
 
   // Iterate over the ACK blocks and gaps
-  for (uint32_t numAckBlockAnalyzed = 0; numAckBlockAnalyzed < ackBlockCount;
-       ++numAckBlockAnalyzed, ++ack_it, ++gap_it)
+  for (uint32_t numAckBlockAnalyzed = 0; numAckBlockAnalyzed < ackBlockCount; ++numAckBlockAnalyzed, ++ack_it, ++gap_it)
     {
       for (auto sent_it = m_subflowSentList[pathId].rbegin ();
            sent_it != m_subflowSentList[pathId].rend () and !m_subflowSentList[pathId].empty (); ++sent_it)                    // Visit sentList in reverse Order for optimization
